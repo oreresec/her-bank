@@ -9,10 +9,11 @@ const accountSchema = new mongoose.Schema({
 accountNumber: {
     type: String,
     unique: true,
-    maxlength: 11
+    maxlength: 10,
+    minlength: 10,
 },
-bankCode:{type:String},
-bankName:{type:String},
+bankCode:{type:String, default: '108'},
+bankName:{type:String, default: 'HER Bank'},
 balance:{type: Number, default:15000},
 isActive: {type: Boolean, default: true}
 },

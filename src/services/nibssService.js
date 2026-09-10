@@ -40,10 +40,11 @@ const validateNIN = async(nin)=>{
     return response.data;
 }
 
-const createAccount = async(data) => {
+const createAccount = async (data) => {
     const token = await getNibssToken();
-    const response = await axios.post(`${process.env.NIBSS_BASE_URL}/api/account/create`, data,{ headers: { Authorization: `Bearer ${token}` }})
+    const response = await axios.post( `${process.env.NIBSS_BASE_URL}/api/account/create`,data,{ headers: { Authorization: `Bearer ${token}`}});
     return response.data;
+
 };
 
 const nameEnquiry = async(accountNumber) =>{
@@ -55,12 +56,13 @@ const transfer = async(data) => {
     const token = await getNibssToken();
     const response = await axios.post(`${process.env.NIBSS_BASE_URL}/api/transfer`, data,{ headers: { Authorization: `Bearer ${token}` }})
     return response.data;
-}
+};
 const getBalance = async (accountNumber)=>{
     const token = await getNibssToken();
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/account/balance/${accountNumber}`,{ headers: { Authorization: `Bearer ${token}` }});
     return response.data;
 }
+
 const getTransaction = async(transactionId)=>{
     const token = await getNibssToken();
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/transaction/${transactionId}`,{ headers: { Authorization: `Bearer ${token}` }});
@@ -71,6 +73,5 @@ const getAllAccounts = async()=>{
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/accounts/`,{ headers: { Authorization: `Bearer ${token}` }});
     return response.data;
 };
-
 
 module.exports = {createBVN,createNIN,validateBVN,validateNIN,createAccount, nameEnquiry,transfer,getBalance,getTransaction,getAllAccounts};
