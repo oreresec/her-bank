@@ -4,9 +4,12 @@ let nibssToken = null;
 let tokenExpiry = null;
 
 const getNibssToken = async () => {
-    if (nibssToken && tokenExpiry > Date.now()) {
-        return nibssToken;
+    if (nibssToken && tokenExpiry > Date.now()) { return nibssToken; }
+    const baseUrl = process.env.NIBSS_BASE_URL;
+    if (!baseUrl) {
+        throw new Error("NIBSS_BASE_URL is not defined in process.env. Check your .env file and dotenv setup.");
     }
+    const url = `${baseUrl.trim()}/api/auth/token`;
 
     const response = await axios.post( `${process.env.NIBSS_BASE_URL}/api/auth/token`,{apiKey: process.env.NIBSS_API_KEY,apiSecret: process.env.NIBSS_API_SECRET});
     nibssToken = response.data.token;
