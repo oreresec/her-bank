@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Customer = require('../models/customer.js');
 const Account = require('../models/account.js');
 const { accountSchema } = require('../schemas/accountSchema.js');
-const {createAccount: createNibssAccount, getBalance: getNibssBalance,nameEnquiry: getNibssNameEnquiry} = require('../services/nibssService.js');
+const {createAccount: createNibssAccount, getBalance: getNibssBalance,nameEnquiry: getNibssNameEnquiry, getAllNibssAccounts} = require('../services/nibssService.js');
 
 exports.createAccount = async (req, res, next) => {
   try {
@@ -26,11 +26,7 @@ exports.createAccount = async (req, res, next) => {
     }
 
 // Step Five - Call NIBSS to generate account
-const nibssResponse = await createNibssAccount({
-  kycType: kycType.toLowerCase(),
-  kycID,
-  dob,
-});
+const nibssResponse = await createNibssAccount({kycType: kycType.toLowerCase(),kycID,dob,});
 
 // Extract nested payload safely
 const accountData = nibssResponse.account || nibssResponse.data || nibssResponse;
@@ -55,10 +51,7 @@ customer.balance = account.balance;
 await customer.save();
 
 // Step Eight - Return Response with populated account object
-return res.status(201).json({
-  message: 'Account created successfully',
-  data: account,
-});
+return res.status(201).json({message: 'Account created successfully',data: account});
   } catch (error) {
     console.error('[CREATE ACCOUNT CONTROLLER ERROR]:', error);
     next(error);
@@ -136,3 +129,11 @@ exports.getAccountDetails = async (req, res, next) => {
   }
 };
 
+exports.getAllAccounts = async (req, res, next) => {
+    try {
+        const nibssResponse = await getAllNibssAccounts();
+        return res.status(200).json({message: "Accounts retrieved successfully",data: nibssResponse});
+    } catch (error) {
+        next(error);
+    }
+};

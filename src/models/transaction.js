@@ -5,14 +5,15 @@ const transactionSchema = new mongoose.Schema({
     customerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Customer",
-        required: true
+        required: true,
+
     },
 
     // Her  bank's internal reference — generated before calling NIBSS
     reference: {
         type: String,
         required: true,
-        unique: true
+        sparse: true
     },
 
     // NIBSS transaction ID — comes back after transfer
@@ -28,6 +29,7 @@ const transactionSchema = new mongoose.Schema({
     // Amount in Naira
     amount: {
         type: Number,
+        min: [1, 'Amount must be greater than zero'],
         required: true
     },
 

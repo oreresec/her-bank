@@ -68,10 +68,10 @@ const getTransaction = async(transactionId)=>{
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/transaction/${transactionId}`,{ headers: { Authorization: `Bearer ${token}` }});
     return response.data;
 }
-const getAllAccounts = async()=>{
+const getAllNibssAccounts = async()=>{
     const token = await getNibssToken();
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/accounts/`,{ headers: { Authorization: `Bearer ${token}` }});
     return response.data;
 };
 
-module.exports = {createBVN,createNIN,validateBVN,validateNIN,createAccount, nameEnquiry,transfer,getBalance,getTransaction,getAllAccounts};
+module.exports = {createBVN,createNIN,validateBVN,validateNIN,createAccount, nameEnquiry,transfer,getBalance,getTransaction,getAllNibssAccounts};
