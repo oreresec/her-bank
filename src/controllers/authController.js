@@ -12,12 +12,10 @@ const register = async (req, res, next)=>{
         if(!result.success){
             return res.status(400).json({errors: result.error.errors})
         }
-        const {firstName, lastName, email, password,phone , dateOfBirth, gender,address,nextOfKin } = result.data;
+        const {firstName, lastName, email, password } = result.data;
 
         // Step two - check if user exist
-        const existingCustomer = await Customer.findOne({
-            $or: [{ email }, { phone }]
-        });
+        const existingCustomer = await Customer.findOne({email});
         if (existingCustomer) {
             return res.status(400).json({ error: "Email already registered" });
         }
