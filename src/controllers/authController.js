@@ -24,7 +24,7 @@ const register = async (req, res, next)=>{
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Step four: create user
-        const customer = await Customer.create({firstName, lastName,email,password:hashedPassword,phone, dateOfBirth, gender, address, nextOfKin})
+        const customer = await Customer.create({firstName, lastName,email,password:hashedPassword})
         return res.status(201).json({message: "Account created successfully",customer: {id: customer._id,firstName: customer.firstName, lastName: customer.lastName,email: customer.email}
         });
     }catch(error){
