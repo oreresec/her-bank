@@ -24,7 +24,8 @@ const customerSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        unique: true
+        unique: true,
+        sparse: true
     },
     dateOfBirth: {
         type: String

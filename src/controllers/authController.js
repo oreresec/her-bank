@@ -19,7 +19,7 @@ const register = async (req, res, next)=>{
             $or: [{ email }, { phone }]
         });
         if (existingCustomer) {
-            return res.status(400).json({ error: "Email or phone already registered" });
+            return res.status(400).json({ error: "Email already registered" });
         }
         //Step three: Hash password
         const salt = await bcrypt.genSalt(10);
