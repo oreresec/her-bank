@@ -3,7 +3,7 @@ const Account = require('../models/account');
 const Customer = require('../models/customer');
 const Transaction = require('../models/transaction');
 const { transferSchema } = require('../schemas/transferSchema');
-const { nameEnquiry } = require('../services/nibssService');
+const { nameEnquiry, getTransaction } = require('../services/nibssService');
 const generateRef = require('../utils/generateRef');
 
 const transferMoney = async (req, res) => {
@@ -13,7 +13,7 @@ const transferMoney = async (req, res) => {
 
         const validatedData = transferSchema.parse(req.body);
 
-        // Use 'let' instead of 'const' so we can safely handle optional bankCodes
+
         let { to, bankCode, amount, narration } = validatedData;
         const senderCustomerId = req.user.customerId;
 
@@ -137,4 +137,66 @@ const transferMoney = async (req, res) => {
     }
 };
 
-module.exports = { transferMoney };
+
+
+const checkTransferStatus = async (req, res, next) => {
+    try {
+        const { reference } = req.params;
+        const customerId = req.user.customerId;
+
+        const transaction = await Transaction.findOne({ reference, customerId });
+        if (!transaction) {
+            return res.status(404).json({ error: "Transaction not found or you do not have permission to view it." });
+        }
+
+        // If it's already completed or internal, just return it directly
+        if (transaction.status !== "PENDING" || transaction.type !== "INTER") {
+            return res.status(200).json({
+                message: "Transaction status retrieved successfully",
+                data: transaction
+            });
+        }
+
+        // If it's a pending inter-bank transfer, poll NIBSS for the live status
+        const nibssResponse = await getTransaction(transaction.transactionId);
+        const realStatus = nibssResponse.data?.status || nibssResponse.status;
+
+        if (realStatus === "SUCCESS") {
+            transaction.status = "SUCCESS";
+            await transaction.save();
+            return res.status(200).json({
+                message: "Transaction is successful",
+                data: transaction,
+                status: realStatus
+            });
+        }
+
+        if (realStatus === "FAILED") {
+            transaction.status = "FAILED";
+            await transaction.save();
+
+            // Refund the sender — money was held in escrow but transfer failed
+            await Account.findOneAndUpdate(
+                { accountNumber: transaction.from },
+                { $inc: { balance: transaction.amount } }
+            );
+
+            return res.status(200).json({
+                message: "Transaction failed and has been refunded",
+                data: transaction,
+                status: realStatus
+            });
+        }
+
+        // Default fallback if NIBSS still says pending
+        return res.status(200).json({
+            message: "Transaction is still pending on the settlement network",
+            data: transaction,
+            status: realStatus
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+module.exports = { transferMoney, checkTransferStatus };

@@ -3,6 +3,8 @@ const Customer = require('../models/customer.js');
 const Account = require('../models/account.js');
 const { accountSchema } = require('../schemas/accountSchema.js');
 const {createAccount: createNibssAccount, getBalance: getNibssBalance,nameEnquiry: getNibssNameEnquiry, getAllNibssAccounts} = require('../services/nibssService.js');
+const { success } = require('zod');
+const Transaction = require('../models/transaction.js');
 
 exports.createAccount = async (req, res, next) => {
   try {
@@ -133,6 +135,31 @@ exports.getAllAccounts = async (req, res, next) => {
     try {
         const nibssResponse = await getAllNibssAccounts();
         return res.status(200).json({message: "Accounts retrieved successfully",data: nibssResponse});
+    } catch (error) {
+        next(error);
+    }
+};
+exports.getAccountBalance = async (req, res, next) => {
+
+    try {
+        const customerId = req.user.customerId;
+        const account = await Account.findOne({customerId})
+        if(!account){
+            return res.status(404).json({ error: "Account not found" });
+        }
+        return res.status(200).json({success:true, data: {accountNumber: account.accountNumber, balance: account.balance, currency: "NGN", status: account.status || "ACTIVE"}})
+
+    }catch(error){
+        next(error)
+    }
+}
+exports.getTransactionHistory = async (req, res, next) => {
+    console.log("HIT THE GET TRANSACTION HISTORY CONTROLLER!");
+    try {
+
+        const customerId = req.user.customerId;
+        const transactions = await Transaction.find({ customerId }).sort({ createdAt: -1 }).limit(51);
+         return res.status(200).json({success: true,count: transactions.length,data: transactions});
     } catch (error) {
         next(error);
     }
