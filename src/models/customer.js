@@ -24,33 +24,30 @@ const customerSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        required: true,
         unique: true
     },
     dateOfBirth: {
-        type: String,
-        required: true
+        type: String
     },
     gender: {
         type: String,
-        enum: ["male", "female", "other"],
-        required: true
+        enum: ["male", "female", "other"]
     },
 
     // Address
     address: {
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        country: { type: String, default: "Nigeria" },
+        street: { type: String },
+        city: { type: String },
+        state: { type: String},
+        country: { type: String },
         postalCode: { type: String }
     },
 
     // Next of Kin
     nextOfKin: {
-        name: { type: String, required: true },
-        phone: { type: String, required: true },
-        relationship: { type: String, required: true },
+        name: { type: String},
+        phone: { type: String},
+        relationship: { type: String },
         address: { type: String }
     },
 

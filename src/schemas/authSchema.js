@@ -17,22 +17,6 @@ const registerSchema = z.object({
     email: z.string().email("Invalid email address").trim(),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Please confirm your password"),
-    phone: z.string().min(11, "Invalid phone number").max(11, "Invalid phone number"),
-    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
-    gender: z.enum(["male", "female", "other"]),
-    address: z.object({
-        street: z.string().min(2).trim(),
-        city: z.string().min(2).trim(),
-        state: z.string().min(2).trim(),
-        country: z.string().default("Nigeria"),
-        postalCode: z.string().optional()
-    }),
-    nextOfKin: z.object({
-        name: z.string().min(2).trim(),
-        phone: z.string().min(11).max(11),
-        relationship: z.string().min(2).trim(),
-        address: z.string().optional()
-    })
 }).refine(
     (data) => data.password === data.confirmPassword,
     {
@@ -40,7 +24,6 @@ const registerSchema = z.object({
         path: ["confirmPassword"]
     }
 );
-
 const changePasswordSchema = z.object({
     currentPassword: z.string().min(1, "Current password required"),
     newPassword: passwordSchema,
@@ -61,4 +44,23 @@ const loginSchema = z.object({
     password: z.string().min(1, "Password is required")
 });
 
-module.exports = { registerSchema, loginSchema, changePasswordSchema, passwordSchema };
+const profileUpdateSchema = z.object({
+    phone: z.string().min(11, "Invalid phone number").max(11, "Invalid phone number"),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
+    gender: z.enum(["male", "female", "other"]),
+    address: z.object({
+        street: z.string().min(2).trim(),
+        city: z.string().min(2).trim(),
+        state: z.string().min(2).trim(),
+        country: z.string().default("Nigeria"),
+        postalCode: z.string().optional()
+    }),
+    nextOfKin: z.object({
+        name: z.string().min(2).trim(),
+        phone: z.string().min(11).max(11),
+        relationship: z.string().min(2).trim(),
+        address: z.string().optional()
+    })
+});
+
+module.exports = { registerSchema, loginSchema, changePasswordSchema, passwordSchema , profileUpdateSchema};
