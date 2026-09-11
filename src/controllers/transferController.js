@@ -3,25 +3,22 @@ const Account = require('../models/account');
 const Customer = require('../models/customer');
 const Transaction = require('../models/transaction');
 const { transferSchema } = require('../schemas/transferSchema');
-const { nameEnquiry, getTransaction } = require('../services/nibssService');
+const { nameEnquiry, getTransaction, transfer } = require('../services/nibssService');
 const generateRef = require('../utils/generateRef');
 
 const transferMoney = async (req, res) => {
     try {
-
-        // PHASE 1: VALIDATION & SMART DETECTION
-
         const validatedData = transferSchema.parse(req.body);
-
-
         let { to, bankCode, amount, narration } = validatedData;
         const senderCustomerId = req.user.customerId;
 
-        // Declare tracking variables securely at the top
         let isInternal = false;
         let recipientName = "";
 
-        const [senderProfile, senderAccount] = await Promise.all([ Customer.findById(senderCustomerId),Account.findOne({ customerId: senderCustomerId })]);
+        const [senderProfile, senderAccount] = await Promise.all([
+            Customer.findById(senderCustomerId),
+            Account.findOne({ customerId: senderCustomerId })
+        ]);
 
         if (!senderProfile || !senderAccount) {
             return res.status(404).json({ error: "Sender profile or account not found" });
@@ -40,74 +37,101 @@ const transferMoney = async (req, res) => {
         }
 
         // 1. Check local DB FIRST before validating bankCode
-
         const localRecipient = await Account.findOne({
-            $or: [ { accountNumber: to }, { accountNumber: Number(to) }]});
+            $or: [{ accountNumber: to }, { accountNumber: Number(to) }]
+        });
 
-        // 2. Handle missing bankCode based on whether it's local or external
+        // 2. Handle missing bankCode
         if (!bankCode) {
-            if (localRecipient) {bankCode = localRecipient.bankCode || "254"; // Safe fallback for local internal transfers
+            if (localRecipient) {
+                bankCode = localRecipient.bankCode || "254";
             } else {
                 return res.status(400).json({ error: "Bank code is required for external interbank transfers." });
             }
         }
 
-        if (localRecipient) {isInternal = true;
-            if (localRecipient.customerId) {
-                const customer = await Customer.findById(localRecipient.customerId);
-                recipientName = customer ? `${customer.firstName} ${customer.lastName}` : "Local Account Holder";
-            } else {
-                recipientName = "Local Account Holder";
-            }
+        // Generate our unique local tracking reference first
+        const localReference = generateRef();
+        let externalTransferResponse = null;
+
+        if (localRecipient) {
+            isInternal = true;
+            recipientName = localRecipient.customerId ?
+                (await Customer.findById(localRecipient.customerId))?.firstName + " " + (await Customer.findById(localRecipient.customerId))?.lastName :
+                "Local Account Holder";
         } else {
             isInternal = false;
             try {
+                // Name enquiry check
                 const enquiryResult = await nameEnquiry(to, bankCode);
                 const payload = enquiryResult.data || enquiryResult;
                 recipientName = payload.accountName;
+
+                // Call the external NIBSS transfer API switch synchronously
+                externalTransferResponse = await transfer({
+                    from,
+                    to,
+                    amount: String(amount),
+                    bankCode,
+                    narration,
+                    reference: localReference
+                });
+
             } catch (err) {
-                console.error("NIBSS Name Enquiry Error:", err.message);
-                return res.status(400).json({ error: "Invalid external account or NIBSS network down." });
+                console.error("NIBSS Transfer/Name Enquiry Error:", err.response?.data || err.message);
+                return res.status(400).json({ error: "External interbank transfer failed or NIBSS network down." });
             }
         }
 
+        // Extract official NIBSS transaction ID if external, otherwise fallback to local reference
+        const remoteTransactionId = isInternal
+            ? localReference
+            : (externalTransferResponse?.transactionId || externalTransferResponse?.data?.transactionId || externalTransferResponse?.reference || localReference);
+
         // PHASE 2: ESCROW & ATOMIC DEBIT LOCK
-        const reference = generateRef();
         const escrowSession = await mongoose.startSession();
         escrowSession.startTransaction();
 
-        let pendingTransaction;
+        let completedTransaction;
 
         try {
             // Atomic Debit Lock on Sender Account
             const updatedSender = await Account.findOneAndUpdate(
-                { accountNumber: senderAccount.accountNumber, balance: { $gte: amount } },{ $inc: { balance:-amount } },{ returnDocument: 'after', session: escrowSession }
+                { accountNumber: senderAccount.accountNumber, balance: { $gte: amount } },
+                { $inc: { balance: -amount } },
+                { returnDocument: 'after', session: escrowSession }
             );
-              if (!updatedSender) {
+            if (!updatedSender) {
                 throw new Error("Insufficient funds during lock.");
             }
 
-            // Create Ledger Entry
+            const finalStatus = "SUCCESS";
+
             const txData = [{
                 customerId: senderCustomerId,
-                reference,
-                transactionId: reference,
+                reference: localReference,          // Our local internal reference
+                transactionId: remoteTransactionId,  // Official NIBSS switch transaction ID
                 from,
                 to,
                 recipientBankCode: bankCode,
                 recipientName,
                 amount,
                 type: isInternal ? "INTRA" : "INTER",
-                status: isInternal ? "SUCCESS" : "PENDING",
+                status: finalStatus,
                 narration
             }];
 
             const createdTx = await Transaction.create(txData, { session: escrowSession });
-            pendingTransaction = createdTx[0];
+            completedTransaction = createdTx[0];
 
-            // If INTRA, credit recipient in the same session
+            // If INTRA, credit recipient locally
             if (isInternal) {
-                await Account.findOneAndUpdate({ $or: [{ accountNumber: to }, { accountNumber: Number(to) }] },{ $inc: { balance: amount } },{ session: escrowSession });}
+                await Account.findOneAndUpdate(
+                    { $or: [{ accountNumber: to }, { accountNumber: Number(to) }] },
+                    { $inc: { balance: amount } },
+                    { session: escrowSession }
+                );
+            }
 
             await escrowSession.commitTransaction();
             escrowSession.endSession();
@@ -120,24 +144,17 @@ const transferMoney = async (req, res) => {
         }
 
         // PHASE 3: FINAL RESPONSE
-        if (isInternal) {
-            return res.status(200).json({
-                message: "Internal transfer successful",
-                data: pendingTransaction
-            });
-        } else {
-            return res.status(200).json({
-                message: "Transfer is pending confirmation from the settlement network. Please check status later.",
-                data: pendingTransaction
-            });
-        }
+        return res.status(200).json({
+            message: isInternal ? "Internal transfer successful" : "Transfer successful",
+            data: completedTransaction,
+            status: "SUCCESS"
+        });
+
     } catch (error) {
         console.error("Controller Error:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
 };
-
-
 
 const checkTransferStatus = async (req, res, next) => {
     try {
@@ -157,9 +174,22 @@ const checkTransferStatus = async (req, res, next) => {
             });
         }
 
-        // If it's a pending inter-bank transfer, poll NIBSS for the live status
-        const nibssResponse = await getTransaction(transaction.transactionId);
-        const realStatus = nibssResponse.data?.status || nibssResponse.status;
+        // Try polling NIBSS for the live status safely
+        let realStatus = "PENDING";
+        try {
+            const nibssResponse = await getTransaction(transaction.transactionId);
+            realStatus = nibssResponse.data?.status || nibssResponse.status;
+        } catch (axiosError) {
+            // If the external sandbox returns a 404 or fails, gracefully fallback to local PENDING state
+            if (axiosError.response && axiosError.response.status === 404) {
+                return res.status(200).json({
+                    message: "Transaction is pending on the settlement network (External sandbox record not yet active)",
+                    data: transaction,
+                    status: "PENDING"
+                });
+            }
+            throw axiosError; // Re-throw if it's a completely different server error
+        }
 
         if (realStatus === "SUCCESS") {
             transaction.status = "SUCCESS";
@@ -199,4 +229,5 @@ const checkTransferStatus = async (req, res, next) => {
         next(error);
     }
 };
+
 module.exports = { transferMoney, checkTransferStatus };

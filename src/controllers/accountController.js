@@ -102,7 +102,7 @@ exports.getBalance = async (req, res, next) => {
 
 exports.nameEnquiry = async (req, res, next) => {
   try {
-    const { accountNo } = req.params;
+    const accountNo = req.body.accountNo || req.body.accountNumber;
 
     // Validate 10-digit NUBAN length
     if (!accountNo || accountNo.length !== 10 || !/^\d{10}$/.test(accountNo)) {
