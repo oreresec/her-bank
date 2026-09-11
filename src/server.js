@@ -1,5 +1,6 @@
 require('dotenv').config();
 const app = require('./app');
+app.set('trust proxy', 1);
 const connectDB = require('./config/databaseConfig');
 const PORT = process.env.PORT || 3005;
 const accountRoutes = require('./routes/accountRoutes');
