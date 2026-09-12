@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler.js');
 const accountRoutes = require('./routes/accountRoutes');
@@ -6,6 +7,10 @@ const accountRoutes = require('./routes/accountRoutes');
 
 
 const app = express();
+
+// CORS - must come early, before routes
+app.use(cors());
+
 
 // Parse incoming json
 app.use(express.json());
