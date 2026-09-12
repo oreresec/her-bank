@@ -21,8 +21,6 @@ app.use(globalLimiter);
 
 // Routes
 
-
-
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/kyc', require('./routes/kycRoutes'));
 app.use('/api/accounts', require('./routes/accountRoutes'));   // Plural
