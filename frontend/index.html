@@ -40,6 +40,7 @@
         justify-content: space-between;
         padding: 20px;
         box-sizing: border-box;
+        transition: transform 0.3s ease-in-out;
     }
     .sidebar-brand { font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 30px; padding-left: 10px; }
     .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; }
@@ -89,7 +90,10 @@
     .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: 600; color: var(--text-light); }
     .auth-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
 
-    /* 📱 MOBILE RESPONSIVE TOP NAV FIX */
+    /* Hidden mobile header button by default */
+    .mobile-header { display: none; }
+
+    /* 📱 MOBILE RESPONSIVE SIDE-DRAWER FIX */
     @media (max-width: 768px) {
         body {
             height: auto;
@@ -102,39 +106,31 @@
         .view.active {
             flex-direction: column;
             height: auto;
-            overflow-y: auto;
         }
+        /* Tuck sidebar off-screen to the left */
         .sidebar {
-            width: 100%;
-            height: auto;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 15px;
-            box-sizing: border-box;
-            border-right: none;
-            border-bottom: 1px solid var(--border);
+            position: fixed;
+            top: 0;
+            left: -260px;
+            width: 240px;
+            height: 100vh;
+            z-index: 1000;
             background: var(--sidebar-bg);
+            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+            border-right: 1px solid var(--border);
         }
-        .sidebar-brand {
-            margin-bottom: 0;
-            font-size: 1rem;
-            padding-left: 0;
+        /* Slides the sidebar into view when toggled */
+        .sidebar.open {
+            transform: translateX(260px);
         }
-        .sidebar-menu {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            padding: 2px 0;
-            flex: none;
-            max-width: 60%;
-        }
-        .sidebar-item {
-            white-space: nowrap;
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            margin-bottom: 0;
-            border-radius: 6px;
+        .mobile-header {
+            display: flex !important;
+            align-items: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
         }
         .main-content {
             width: 100%;
@@ -217,6 +213,8 @@
             </div>
 
             <div class="main-content">
+                <button onclick="toggleMobileSidebar()" style="background: var(--primary); width: 38px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; border-radius: 6px;">☰</button>
+    <span style="font-weight: 700; margin-left: 12px; color: var(--primary);">HER BANK</span>
 
                 <!-- TAB 1: OVERVIEW -->
                 <div id="tab-overview" class="content-tab">
@@ -415,6 +413,12 @@ function switchTab(tabName, event) {
             kycSetupBox.style.display = 'flex';
             kycSetupBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+    }
+
+    // 📱 Auto-close mobile sidebar drawer after selecting a tab
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('open');
     }
 }
 
@@ -947,6 +951,12 @@ async function handleUpdateProfile() {
             submitBtn.style.cursor = 'pointer';
             submitBtn.textContent = 'Verify & Generate Account';
         }
+    }
+}
+function toggleMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('open');
     }
 }
 </script>
