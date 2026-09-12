@@ -9,7 +9,7 @@ const accountRoutes = require('./routes/accountRoutes');
 const app = express();
 
 // CORS - must come early, before routes
-aapp.use(cors({
+app.use(cors({
     origin: process.env.FRONTEND_URL || "https://her-bank-1.onrender.com",
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
