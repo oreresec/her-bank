@@ -9,7 +9,11 @@ const accountRoutes = require('./routes/accountRoutes');
 const app = express();
 
 // CORS - must come early, before routes
-app.use(cors());
+app.use(cors({
+    origin: '*', // Allows requests from your live frontend
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 // Parse incoming json
