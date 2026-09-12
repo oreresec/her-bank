@@ -50,7 +50,7 @@ const transferMoney = async (req, res) => {
             }
         }
 
-        // Generate our unique local tracking reference first
+        // Generate  unique local tracking reference first
         const localReference = generateRef();
         let externalTransferResponse = null;
 
@@ -68,15 +68,7 @@ const transferMoney = async (req, res) => {
                 recipientName = payload.accountName;
 
                 // Call the external NIBSS transfer API switch synchronously
-                externalTransferResponse = await transfer({
-                    from,
-                    to,
-                    amount: String(amount),
-                    bankCode,
-                    narration,
-                    reference: localReference
-                });
-
+                externalTransferResponse = await transfer({ from,to,amount: String(amount),bankCode,narration,reference: localReference});
             } catch (err) {
                 console.error("NIBSS Transfer/Name Enquiry Error:", err.response?.data || err.message);
                 return res.status(400).json({ error: "External interbank transfer failed or NIBSS network down." });
@@ -107,10 +99,11 @@ const transferMoney = async (req, res) => {
 
             const finalStatus = "SUCCESS";
 
+            // Create Transaction Record for the SENDER
             const txData = [{
                 customerId: senderCustomerId,
-                reference: localReference,          // Our local internal reference
-                transactionId: remoteTransactionId,  // Official NIBSS switch transaction ID
+                reference: localReference,          
+                transactionId: remoteTransactionId, // Official NIBSS switch transaction ID
                 from,
                 to,
                 recipientBankCode: bankCode,
@@ -124,14 +117,23 @@ const transferMoney = async (req, res) => {
             const createdTx = await Transaction.create(txData, { session: escrowSession });
             completedTransaction = createdTx[0];
 
-            // If INTRA, credit recipient locally
+            // If INTRA, credit recipient locally AND create their transaction log
             if (isInternal) {
-                await Account.findOneAndUpdate(
+                const recipientAccount = await Account.findOneAndUpdate(
                     { $or: [{ accountNumber: to }, { accountNumber: Number(to) }] },
                     { $inc: { balance: amount } },
-                    { session: escrowSession }
+                    { returnDocument: 'after', session: escrowSession }
                 );
-            }
+
+                if (recipientAccount) {
+                    const senderFullName = `${senderProfile.firstName} ${senderProfile.lastName}`.trim();
+
+                    // 💡 DUAL-SIDED LOGGING: Create matching Transaction record for the RECIPIENT
+                    await Transaction.create([{ customerId: recipientAccount.customerId, reference: localReference,
+                        transactionId: `${remoteTransactionId}-REC`,
+                        from, to,recipientBankCode: bankCode,recipientName: senderFullName,  amount,
+                        type: "INTRA",status: finalStatus,narration: narration || "Internal transfer received"
+                    }], { session: escrowSession }); }}
 
             await escrowSession.commitTransaction();
             escrowSession.endSession();
@@ -155,7 +157,6 @@ const transferMoney = async (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 };
-
 const checkTransferStatus = async (req, res, next) => {
     try {
         const { reference } = req.params;

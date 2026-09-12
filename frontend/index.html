@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HER Bank Dashboard</title>
+    <style>
+        :root {
+            --bg-main: #f4f6f9;
+            --sidebar-bg: #ffffff;
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container { display: flex; width: 100%; height: 100%; }
+        .view { display: none; width: 100%; height: 100%; }
+        .view.active { display: flex; }
+
+        .sidebar {
+            width: 240px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        .sidebar-brand { font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 30px; padding-left: 10px; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; }
+        .sidebar-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-light);
+            margin-bottom: 6px;
+            transition: all 0.2s;
+        }
+        .sidebar-item:hover, .sidebar-item.active { background: #eff6ff; color: var(--accent); }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; box-sizing: border-box; }
+        .header-title { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin-bottom: 24px; }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+        .atm-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(15,23,42,0.2);
+        }
+
+        input, select {
+            width: 100%; padding: 10px 14px; margin: 8px 0 16px 0;
+            border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 0.9rem;
+        }
+        button {
+            background: var(--accent); color: white; border: none; padding: 10px 16px;
+            border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%;
+        }
+        button:hover { background: #1d4ed8; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-light); font-weight: 600; }
+
+        #authView { justify-content: center; align-items: center; background: var(--bg-main); }
+        .auth-card { width: 100%; max-width: 400px; background: white; padding: 30px; border-radius: 12px; border: 1px solid var(--border); }
+
+        .tab-row { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: 600; color: var(--text-light); }
+        .auth-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    </style>
+</head>
+<body>
+    <!-- Centered Custom Flashboard Notification -->
+<div id="customToast" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-top: 5px solid var(--accent); padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-radius: 12px; z-index: 9999; min-width: 320px; max-width: 90%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+        <strong id="toastTitle" style="color: var(--primary); font-size: 1.2rem;">Notification</strong>
+        <!-- The X close button -->
+        <button onclick="document.getElementById('customToast').style.display='none'" style="background: none; color: #64748b; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; width: auto; line-height: 1;">&times;</button>
+    </div>
+    <div id="toastMessage" style="color: var(--text); font-size: 1rem; line-height: 1.5; white-space: pre-line;"></div>
+</div>
+
+    <div class="app-container">
+
+        <!-- AUTH VIEW -->
+        <div id="authView" class="view active">
+            <div class="auth-card">
+                <h2 style="margin-top: 0; color: var(--primary);">HER Bank</h2>
+                <div class="tab-row">
+                    <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
+                    <div class="auth-tab" onclick="switchAuthTab('signup')">Register</div>
+                </div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)">
+    <label>Email</label>
+    <input type="email" id="loginEmail" placeholder="Enter your email" required>
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+    <button type="submit">Login</button>
+</form>
+
+                <form id="signupForm" style="display: none;" onsubmit="handleSignup(event)">
+                    <label>First Name</label>
+                    <input type="text" id="signupFirstName" required>
+                    <label>Last Name</label>
+                    <input type="text" id="signupLastName" required>
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" required>
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" required>
+                    <label>Confirm Password</label>
+                    <input type="password" id="signupConfirm" required>
+                    <button type="submit">Register</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD -->
+        <div id="dashboardView" class="view">
+            <div class="sidebar">
+                <div>
+                    <div class="sidebar-brand">HER BANK</div>
+                    <ul class="sidebar-menu">
+                        <li class="sidebar-item active" onclick="switchTab('overview', event)">Dashboard</li>
+                        <li class="sidebar-item" onclick="switchTab('transfer', event)">Transfer Money</li>
+                        <li class="sidebar-item" onclick="switchTab('enquiry', event)">Name Enquiry</li>
+                        <li class="sidebar-item" onclick="switchTab('profile', event)">Profile & KYC</li>
+                    </ul>
+                </div>
+                <div>
+                    <li class="sidebar-item" style="color: #dc2626;" onclick="handleLogout()">Logout</li>
+                </div>
+            </div>
+
+            <div class="main-content">
+
+                <!-- TAB 1: OVERVIEW -->
+                <div id="tab-overview" class="content-tab">
+                    <div class="header-title">Dashboard Overview</div>
+                    <div class="grid-3">
+                        <div class="atm-card">
+                            <div style="font-size: 0.75rem; opacity: 0.8; text-transform: uppercase;">Account Balance</div>
+                            <div id="dashBalance" style="font-size: 1.6rem; font-weight: 700; margin: 8px 0;">₦0.00</div>
+                            <div id="dashAccountNo" style="font-size: 0.9rem; font-family: monospace; opacity: 0.9;">---</div>
+                        </div>
+                        <div class="card">
+                            <div style="font-size: 0.85rem; color: var(--text-light);">Account Status</div>
+                            <div id="dashStatus" style="font-size: 1.2rem; font-weight: 600; margin-top: 10px; color: #16a34a;">Active</div>
+                        </div>
+                        <div class="card">
+                            <div style="font-size: 0.85rem; color: var(--text-light);">KYC Verification</div>
+                            <div id="dashKycStatus" style="font-size: 1.2rem; font-weight: 600; margin-top: 10px; color: #2563eb;">Verified</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 style="margin-top: 0; font-size: 1.05rem;">Transaction History</h3>
+                        <table>
+                            <thead>
+                                 <tr>
+<th>Ref</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Recipient</th> <!-- Added this header -->
+        </tr>
+    </thead>
+    <tbody id="txTableBody">
+        <tr><td colspan="5" style="text-align: center; color: var(--text-light);">No recent transactions</td></tr>
+    </tbody>
+</table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: TRANSFER -->
+                <div id="tab-transfer" class="content-tab" style="display: none;">
+                    <div class="header-title">Fund Transfer</div>
+                    <div class="card" style="max-width: 500px;">
+                        <label>Recipient Account Number</label>
+                        <input type="text" id="transferAccNo" placeholder="10-digit account number">
+                        <label>Amount (₦)</label>
+                        <input type="number" id="transferAmount" placeholder="5000">
+                        <label>Description / Narration</label>
+                        <input type="text" id="transferDesc" placeholder="Dinner reimbursement">
+                        <button onclick="handleTransfer()">Send Money</button>
+                    </div>
+                </div>
+
+                <!-- TAB 3: NAME ENQUIRY -->
+                <div id="tab-enquiry" class="content-tab" style="display: none;">
+                    <div class="header-title">Account Name Enquiry</div>
+                    <div class="card" style="max-width: 500px;">
+                        <label>Account Number to Verify</label>
+                        <input type="text" id="enquiryAccNo" placeholder="Enter 10-digit account number">
+                        <button onclick="handleNameEnquiry()">Verify Account</button>
+                        <div id="enquiryResult" style="margin-top: 16px; font-weight: 600; color: var(--primary);"></div>
+                    </div>
+                </div>
+
+   <!-- TAB 4: PROFILE & KYC -->
+<div id="tab-profile" class="content-tab" style="display: none;">
+    <div class="header-title">Profile & KYC Details</div>
+
+   <!-- Upgraded Spacious Profile Card -->
+<div class="card" style="max-width: 700px; margin-bottom: 20px; background: #ffffff; padding: 30px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: var(--primary); font-size: 1.25rem;">My Profile</h3>
+        <span style="background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">KYC Verified</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+        <div>
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Full Name</p>
+            <p id="profileFullName" style="margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 600; color: var(--primary);">Loading...</p>
+
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Email Address</p>
+            <p id="profileEmail" style="margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 600; color: var(--primary);">Loading...</p>
+
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Phone Number</p>
+            <p id="profilePhoneDisplay" style="margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 600; color: var(--primary);">Loading...</p>
+        </div>
+
+        <div>
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Account Number</p>
+            <p id="profileAccountNumber" style="margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 600; color: var(--primary); font-family: monospace;">N/A</p>
+
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Verification ID</p>
+            <p id="profileBvnMasked" style="margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 600; color: var(--primary); font-family: monospace;">N/A</p>
+
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Residential Address</p>
+            <p id="profileAddress" style="margin: 0 0 16px 0; font-size: 1rem; font-weight: 500; color: var(--primary); line-height: 1.4;">N/A</p>
+
+            <p style="margin: 0 0 4px 0; color: var(--text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Next of Kin</p>
+            <p id="profileNok" style="margin: 0; font-size: 1rem; font-weight: 500; color: var(--primary);">N/A</p>
+        </div>
+    </div>
+</div>
+
+
+        <!-- KYC / Account Generation Modal Flashbox -->
+<div id="kycSetupBox" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
+
+    <div class="card" style="width: 100%; max-width: 480px; background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); position: relative; max-height: 90vh; overflow-y: auto; box-sizing: border-box;">
+
+        <!-- Close 'X' Button -->
+        <button onclick="closeKycModal()" style="position: absolute; top: 16px; right: 16px; background: #f1f5f9; border: none; font-size: 1.2rem; font-weight: bold; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b;">
+            ✕
+        </button>
+
+        <div style="background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-block; margin-bottom: 10px; text-transform: uppercase;">
+            ⚡ Action Required
+        </div>
+
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.3rem; margin-bottom: 6px;">KYC & Account Setup</h3>
+        <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 18px; line-height: 1.4;">
+            Select your verification type and complete your details to activate your HER Bank account.
+        </p>
+
+        <!-- Phone Number -->
+<label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Phone Number</label>
+<input type="text" id="profPhone" autocomplete="off" placeholder="080xxxxxxxx" style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+
+<!-- Date of Birth -->
+<label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Date of Birth</label>
+<input type="date" id="profDob" autocomplete="off" style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+
+<!-- Gender -->
+<label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Gender</label>
+<select id="profGender" autocomplete="off" style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; box-sizing: border-box;">
+    <option value="">Select Gender</option>
+    <option value="female">Female</option>
+    <option value="male">Male</option>
+</select>
+
+        <!-- SINGLE Verification Type Dropdown -->
+        <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Verification Type</label>
+        <select id="kycTypeSelect" onchange="toggleKycMethod()" style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; box-sizing: border-box;">
+            <option value="bvn">BVN</option>
+            <option value="nin">NIN</option>
+        </select>
+
+        <!-- Dynamic ID Label & Input Box to Type Into -->
+        <label id="kycIdLabel" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">BVN (11 digits)</label>
+        <input type="text" id="kycIdInput" maxlength="11" placeholder="Enter 11-digit BVN" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: monospace; box-sizing: border-box;">
+        <!-- Address Details -->
+<h4 style="margin: 16px 0 8px 0; color: var(--primary); font-size: 0.95rem;">Address Details</h4>
+<input type="text" id="profStreet" placeholder="Street Address (e.g., 12 Main St)" style="width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+<input type="text" id="profCity" placeholder="City" style="width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+<input type="text" id="profState" placeholder="State" style="width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+<input type="text" id="profCountry" placeholder="Country " style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+
+<!-- Next of Kin Details -->
+<h4 style="margin: 16px 0 8px 0; color: var(--primary); font-size: 0.95rem;">Next of Kin Details</h4>
+<input type="text" id="nokName" placeholder="Next of Kin Full Name" style="width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+<input type="text" id="nokPhone" maxlength="11" placeholder="Next of Kin Phone (11 digits)" style="width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+<input type="text" id="nokRelationship" placeholder="Relationship (e.g. Sibling)" style="width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+
+        <!-- Submit Button -->
+       <button id="submitKycBtn" onclick="handleUpdateProfile()" style="width: 100%; background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer;">
+    Verify & Generate Account
+</button>
+    </div>
+</div>
+
+    <script>
+
+
+    const API_BASE = "http://localhost:3005";
+    let authToken = localStorage.getItem('token') || '';
+
+    if (authToken) showDashboard();
+
+
+function switchTab(tabName, event) {
+    // Hide all tabs
+    document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+
+    // Show target tab
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    if (targetTab) targetTab.style.display = 'block';
+
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
+
+    // If opening Profile tab and user is unverified, slide/pop the flashcard right into view
+    if (tabName === 'profile') {
+        const kycSetupBox = document.getElementById('kycSetupBox');
+        const kycStatus = document.getElementById('dashKycStatus').textContent;
+
+        if (kycSetupBox && kycStatus === "Unverified") {
+            kycSetupBox.style.display = 'flex';
+            kycSetupBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: document.getElementById('loginEmail').value,
+                    password: document.getElementById('loginPassword').value
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || data.error || 'Login failed');
+
+            authToken = data.token;
+            localStorage.setItem('token', authToken);
+            showDashboard();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function handleSignup(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    firstName: document.getElementById('signupFirstName').value,
+                    lastName: document.getElementById('signupLastName').value,
+                    email: document.getElementById('signupEmail').value,
+                    password: document.getElementById('signupPassword').value,
+                    confirmPassword: document.getElementById('signupConfirm').value
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || data.error || 'Registration failed');
+
+            alert('Account registered successfully! Please login.');
+            switchAuthTab('login');
+        } catch (err) { alert(err.message); }
+    }
+
+    function showDashboard() {
+        document.getElementById('authView').classList.remove('active');
+        document.getElementById('dashboardView').classList.add('active');
+        fetchDashboardData();
+    }
+
+    function handleLogout() {
+        authToken = '';
+        localStorage.removeItem('token');
+        document.getElementById('dashboardView').classList.remove('active');
+        document.getElementById('authView').classList.add('active');
+    }
+
+ async function fetchDashboardData() {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/details`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("server do not understand your request");
+        }
+
+        const responseJson = await res.json();
+        const account = responseJson.data || responseJson;
+
+        // 1. ALWAYS populate Profile Tab fields first
+        const firstName = account.firstName || '';
+        const lastName = account.lastName || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        document.getElementById('profileFullName').textContent = fullName || "N/A";
+        document.getElementById('profileEmail').textContent = account.email || "N/A";
+        document.getElementById('profilePhoneDisplay').textContent = account.phone || "N/A";
+        document.getElementById('profileAccountNumber').textContent = account.accountNumber || "N/A"; // 👈 Add this line
+
+
+        const fullNameElement = document.getElementById('dashUserName');
+        if (fullNameElement && fullName) {
+            fullNameElement.textContent = `Welcome, ${fullName}`;
+        }
+
+        // 2. Render Masked BVN or NIN dynamically
+        const bvnField = document.getElementById('profileBvnMasked');
+        if (bvnField) {
+            if (account.bvn) {
+                bvnField.textContent = `BVN: ${account.bvn}`;
+            } else if (account.nin) {
+                bvnField.textContent = `NIN: ${account.nin}`;
+            } else {
+                bvnField.textContent = "N/A";
+            }
+        }
+
+        // 3. Render Complete Address (Street, City, State, Country)
+        const addressField = document.getElementById('profileAddress');
+        if (addressField) {
+            if (account.address) {
+                const addr = account.address;
+                const fullAddr = typeof addr === 'object'
+                    ? [addr.street, addr.city, addr.state, addr.country].filter(Boolean).join(', ')
+                    : addr;
+                addressField.textContent = fullAddr || "Not provided";
+            } else {
+                addressField.textContent = "Not provided";
+            }
+        }
+
+        // 4. Render Next of Kin Details (💡 THIS WAS MISSING!)
+        const nokField = document.getElementById('profileNok');
+        if (nokField) {
+            if (account.nextOfKin) {
+                const nok = account.nextOfKin;
+                nokField.textContent = `${nok.name || ''} (${nok.relationship || ''}) — ${nok.phone || ''}`.trim();
+            } else {
+                nokField.textContent = "N/A";
+            }
+        }
+
+        // 🚨 5. CHECK IF ACCOUNT IS DISABLED
+        if (account.isActive === false || account.status === 'disabled') {
+            showNotification("Account Disabled", "Your account has been disabled. Please contact admin for assistance.", true);
+            document.body.style.pointerEvents = 'none';
+            document.body.style.opacity = '0.4';
+            return;
+        }
+
+        // 6. Check if Bank Account / KYC has been set up yet
+        const hasAccount = Boolean(account.accountNumber);
+        const hasKyc = Boolean(account.bvn || account.nin || account.kycVerified);
+
+        if (!hasAccount || !hasKyc) {
+            document.getElementById('dashAccountNo').textContent = "Setup Required";
+            document.getElementById('dashBalance').textContent = "₦0.00";
+
+            const statusEl = document.getElementById('dashStatus');
+            if (statusEl) { statusEl.textContent = "No KYC done yet"; statusEl.style.color = "#d97706"; }
+
+            const kycEl = document.getElementById('dashKycStatus');
+            if (kycEl) { kycEl.textContent = "Unverified"; kycEl.style.color = "#d97706"; }
+
+            // FORCE SHOW THE KYC FLASHBOX FORM
+            const kycSetupBox = document.getElementById('kycSetupBox');
+            if (kycSetupBox) {
+                kycSetupBox.style.display = 'flex';
+            }
+
+            return; // Stop here so new users can fill out KYC
+        }
+
+        // 7. Established User State: Update Dashboard Overview & Active Status
+        document.getElementById('dashAccountNo').textContent = account.accountNumber || "N/A";
+        document.getElementById('dashBalance').textContent = `₦${(account.balance || 0).toLocaleString()}`;
+
+        const statusEl = document.getElementById('dashStatus');
+        if (statusEl) {
+            statusEl.textContent = "Active";
+            statusEl.style.color = "#16a34a";
+        }
+
+        const kycEl = document.getElementById('dashKycStatus');
+        if (kycEl) {
+            kycEl.textContent = "Verified";
+            kycEl.style.color = "#2563eb";
+        }
+
+        // HIDE THE KYC FLASHCARD FOR VERIFIED USERS
+        const kycSetupBox = document.getElementById('kycSetupBox');
+        if (kycSetupBox) {
+            kycSetupBox.style.display = 'none';
+        }
+
+        // 8. Fetch Transaction History Table
+        fetchTransactionHistory();
+
+    } catch (err) {
+        console.error("Dashboard/Profile fetch error:", err);
+    }
+}
+
+async function fetchTransactionHistory() {
+    try {
+        const res = await fetch(`${API_BASE}/api/accounts/transactions`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const responseJson = await res.json();
+        if (!res.ok) throw new Error(responseJson.message || 'Failed to fetch transactions');
+
+        const transactions = responseJson.data || responseJson;
+
+        const tableBody = document.getElementById('txTableBody');
+        tableBody.innerHTML = ''; // Clear old rows
+
+        if (!transactions || transactions.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-light);">No recent transactions</td></tr>';
+            return;
+        }
+
+        // Loop and render rows dynamically into the table
+        transactions.forEach(tx => {
+            const tr = document.createElement('tr');
+
+            // 1. Get the reference
+            const displayRef = tx.nibssTransactionId || tx.reference || tx.transactionId || tx._id || '';
+
+            // 2. Grab the recipient name
+            const recipientName = tx.recipientName || tx.receiverName || tx.beneficiaryName || tx.accountName || tx.narration || 'External Transfer';
+
+            tr.innerHTML = `
+                <td style="font-family: monospace; font-weight: 600;">${displayRef.substring(0, 14)}</td>
+                <td><span style="font-weight: 600; text-transform: uppercase;">${tx.type || 'TRANSFER'}</span></td>
+                <td style="font-weight: 600;">₦${Number(tx.amount || 0).toLocaleString()}</td>
+                <td><span style="color: ${tx.status === 'SUCCESS' ? '#16a34a' : '#dc2626'}; font-weight: 600;">${tx.status || 'SUCCESS'}</span></td>
+                <td>${recipientName}</td> <!-- Dedicated column for the name -->
+            `;
+            tableBody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error("Transaction history error:", err);
+    }
+}
+
+// 1. THIS FUNCTION CONTROLS THE DYNAMIC LABEL SWITCHING
+function updateKycInputLabel() {
+    const type = document.getElementById('kycTypeSelect').value;
+    const label = document.getElementById('kycIdLabel');
+    const input = document.getElementById('kycIdInput');
+
+    if (type === 'nin') {
+        label.textContent = "NIN (11 digits)";
+        input.placeholder = "Enter 11-digit NIN";
+    } else {
+        label.textContent = "BVN (11 digits)";
+        input.placeholder = "Enter 11-digit BVN";
+    }
+}
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const tabs = document.querySelectorAll('.auth-tab');
+
+    tabs.forEach(t => t.classList.remove('active'));
+
+    if (tab === 'login') {
+        if (loginForm) loginForm.style.display = 'block';
+        if (signupForm) signupForm.style.display = 'none';
+        // Select the first tab (Login)
+        if (tabs[0]) tabs[0].classList.add('active');
+    } else {
+        if (loginForm) loginForm.style.display = 'none';
+        if (signupForm) signupForm.style.display = 'block';
+        // Select the second tab (Register)
+        if (tabs[1]) tabs[1].classList.add('active');
+    }
+}
+   async function handleNameEnquiry() {
+    const accNo = document.getElementById('enquiryAccNo').value;
+    const resultElement = document.getElementById('enquiryResult');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/transfers/name-enquiry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({ accountNumber: accNo })
+        });
+
+        const contentType = res.headers.get("content-type");
+
+        // If it's NOT JSON, grab the raw text (Express HTML error page or crash log) and throw it
+        if (!contentType || !contentType.includes("application/json")) {
+            const rawErrorText = await res.text();
+            throw new Error(`Server returned HTML/Text [${res.status}]: ${rawErrorText.trim().substring(0, 120)}...`);
+        }
+
+        const responseJson = await res.json();
+
+        if (!res.ok) {
+            throw new Error(responseJson.message || responseJson.error || `Request failed with status ${res.status}`);
+        }
+
+        // Extract fields safely
+        const accountName = responseJson.data?.accountName || responseJson.accountName;
+        const accountNumber = responseJson.data?.accountNumber || responseJson.accountNumber;
+        const bankCode = responseJson.data?.bankCode || responseJson.bankCode;
+
+        //resultElement.textContent = `Account Name: ${accountName} | Acc No: ${accountNumber || 'N/A'} | Bank Code: ${bankCode || 'N/A'}`;
+        //resultElement.style.color = "var(--primary)";
+        showNotification("Account Verified", `Name: ${accountName} \nBank Code: ${bankCode || 'N/A'}`)
+
+    } catch (err) {
+        console.error("Name enquiry error details:", err);
+        resultElement.textContent = `Error: ${err.message}`;
+        resultElement.style.color = "#dc2626"; // Red error color
+    }
+}
+
+   async function handleTransfer() {
+    try {
+        const res = await fetch(`${API_BASE}/api/transfers/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({
+                to: document.getElementById('transferAccNo').value,          // Maps to 'to'
+                bankCode: document.getElementById('transferBankCode')?.value || "254", // Maps to 'bankCode' (defaults to HER Bank's 254 if not provided)
+                amount: Number(document.getElementById('transferAmount').value), // Maps to 'amount'
+                narration: document.getElementById('transferDesc').value     // Maps to 'narration'
+            })
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const rawErrorText = await res.text();
+            throw new Error(`Server error [${res.status}]: ${rawErrorText.trim().substring(0, 100)}`);
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || 'Transfer failed');
+
+        const amountSent = document.getElementById('transferAmount').value;
+        showNotification("Transfer Successful", `You successfully sent ₦${amountSent}.`);
+        fetchDashboardData();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+ function showNotification(title, message, isError = false) {
+    const toast = document.getElementById('customToast');
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastMessage').textContent = message;
+
+    // Make the side border red if it's an error, otherwise blue/green
+    toast.style.borderLeftColor = isError ? '#dc2626' : '#16a34a';
+
+    toast.style.display = 'block'; // Show it!
+
+    // Optional: Auto-hide it after 7 seconds so it doesn't stay on screen forever
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 7000);
+}
+async function handleStatusQuery() {
+    const ref = document.getElementById('statusQueryRef').value.trim();
+    if (!ref) {
+        showNotification("Error", "Please enter a transaction reference or ID.", true);
+        return;
+    }
+
+    try {
+        // Matches your backend route: router.get('/status/:reference', ...)
+        const res = await fetch(`${API_BASE}/api/transfers/status/${encodeURIComponent(ref)}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const rawText = await res.text();
+            throw new Error(`Server error: ${rawText.substring(0, 100)}`);
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || 'Failed to query transaction status');
+
+        // Extract transaction details from response
+        const txInfo = data.data || data;
+        const statusText = `Status: ${txInfo.status || 'UNKNOWN'}
+            Amount: ₦${Number(txInfo.amount || 0).toLocaleString()}
+            Type: ${txInfo.type || 'TRANSFER'}
+            Reference: ${txInfo.reference || ref}
+            Date: ${new Date(txInfo.createdAt || Date.now()).toLocaleString()}`;
+
+        showNotification("Transaction Status Result", statusText);
+
+    } catch (err) {
+        showNotification("Query Failed", err.message, true);
+    }
+}
+function closeKycModal() {
+    const kycSetupBox = document.getElementById('kycSetupBox');
+    if (kycSetupBox) {
+        kycSetupBox.style.display = 'none';
+    }
+}
+
+// This part toggle when switching between BVN and NIN for kyc verification
+function toggleKycMethod() {
+    const selectEl = document.getElementById('kycTypeSelect');
+    const labelEl = document.getElementById('kycIdLabel');
+    const inputEl = document.getElementById('kycIdInput');
+
+    if (!selectEl || !labelEl || !inputEl) {
+        console.error("KYC elements missing from DOM!");
+        return;
+    }
+
+    const method = selectEl.value;
+
+    if (method === 'nin') {
+        labelEl.textContent = "NIN (11 digits)";
+        inputEl.placeholder = "Enter 11-digit NIN";
+    } else {
+        labelEl.textContent = "BVN (11 digits)";
+        inputEl.placeholder = "Enter 11-digit BVN";
+    }
+}
+
+async function handleUpdateProfile() {
+    const submitBtn = document.getElementById('submitKycBtn');
+    console.log("🚀 handleUpdateProfile was clicked and triggered!");
+
+    try {
+       // 1. Grab base inputs safely
+        const typeSelect = document.getElementById('kycTypeSelect');
+        const idInput = document.getElementById('kycIdInput');
+        const phoneInput = document.getElementById('profPhone');
+        const dobInput = document.getElementById('profDob');
+        const genderInput = document.getElementById('profGender');
+
+
+    // Grab Address inputs dynamically
+        const street = document.getElementById('profStreet')?.value.trim() || "";
+        const city = document.getElementById('profCity')?.value.trim() || "";
+        const state = document.getElementById('profState')?.value.trim() || "";
+        const country = document.getElementById('profCountry')?.value.trim() || "Nigeria";
+
+        // Grab Next of Kin inputs dynamically
+        const nokName = document.getElementById('nokName')?.value.trim() || "";
+        const nokPhone = document.getElementById('nokPhone')?.value.trim() || "";
+        const nokRelationship = document.getElementById('nokRelationship')?.value.trim() || "";
+
+        if (!typeSelect || !idInput || !phoneInput || !dobInput || !genderInput) {
+            alert("CRASH: One of your HTML IDs is missing or misspelled!");
+            return;
+        }
+
+        const kycType = typeSelect.value; // 'bvn' or 'nin'
+        const idNumber = idInput.value.trim();
+        const phone = phoneInput.value.trim();
+        const dob = dobInput.value.trim();
+        const gender = genderInput.value;
+
+        // 2. Validation
+        // 2. Validation
+        if (!phone || !dob || !gender || !idNumber || !street || !city || !state || !nokName || !nokPhone || !nokRelationship) {
+            showNotification("Error", "Please fill in all required fields, including Address and Next of Kin.", true);
+            return;
+        }
+
+        if (idNumber.length !== 11) {
+            showNotification("Error", `${kycType.toUpperCase()} must be exactly 11 digits.`, true);
+            return;
+        }
+
+
+        // 3. GRAY OUT BUTTON & SHOW LOADING STATE
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.background = '#94a3b8'; // Gray color
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.textContent = 'Processing...';
+        }
+
+        showNotification("Processing", `Validating ${kycType.toUpperCase()} and updating profile...`);
+
+        // 4. Submit to Profile Route
+        const profileRes = await fetch(`${API_BASE}/api/auth/profile`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({
+                phone: phone,
+                dateOfBirth: dob,
+                gender: gender,
+                [kycType]: idNumber,
+                address: { street: "12 Main St", city: "Lagos", state: "Lagos", country: "Nigeria" },
+                nextOfKin: { name: "Test Kin", phone: "08011112222", relationship: "sibling" }
+            })
+        });
+
+        // Safe JSON response parser (Prevents empty JSON crash)
+        const profileText = await profileRes.text();
+        const profileData = profileText ? JSON.parse(profileText) : {};
+
+        if (!profileRes.ok) {
+            throw new Error(profileData.message || profileData.error || 'Profile verification failed');
+        }
+
+        showNotification("Success!", `${kycType.toUpperCase()} verified! Generating bank account...`);
+
+        // 5. Generate Bank Account
+        const accRes = await fetch(`${API_BASE}/api/accounts/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({
+                kycType: kycType,
+                kycID: idNumber,
+                dob: dob
+            })
+        });
+
+        const accText = await accRes.text();
+        const accJson = accText ? JSON.parse(accText) : {};
+
+        if (!accRes.ok) {
+            throw new Error(accJson.message || accJson.error || 'Account creation failed');
+        }
+
+        showNotification("Success!", "Bank account successfully created!");
+
+        closeKycModal();
+        fetchDashboardData();
+
+    } catch (err) {
+        showNotification("Action Failed", err.message, true);
+        console.error(err);
+    } finally {
+        // RESTORE BUTTON STATE WHETHER IT SUCCEEDS OR FAILS
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.background = '#2563eb'; // Original blue
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.textContent = 'Verify & Generate Account';
+        }
+    }
+}
+</script>
+</body>
+</html>
