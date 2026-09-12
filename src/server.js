@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3005;
 
 
 app.get('/', (req, res) => {
-    res.status(200).json({status: "SUCCESS",message: "HER Bank Backend is live and running securely"});
+    res.status(200).json({status: "SUCCESS",message: "welcome, go back"});
 });
 
 const start = async () => {
