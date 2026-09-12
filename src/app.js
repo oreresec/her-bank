@@ -1,6 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler.js');
+const accountRoutes = require('./routes/accountRoutes');
 
 
 
@@ -27,6 +28,7 @@ app.use('/api/kyc', require('./routes/kycRoutes'));
 app.use('/api/accounts', require('./routes/accountRoutes'));   // Plural
 app.use('/api/transfers', require('./routes/transferRoutes')); // Plural
 app.use('/api/admin', require('./routes/adminRoutes'));
+
 
 // Error handler — must always be last
 app.use(errorHandler);

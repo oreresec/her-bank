@@ -45,6 +45,7 @@ const loginSchema = z.object({
 });
 
 const profileUpdateSchema = z.object({
+    bvn: z.string().length(11, "BVN must be exactly 11 digits"), // <--- Add this
     phone: z.string().min(11, "Invalid phone number").max(11, "Invalid phone number"),
     dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
     gender: z.enum(["male", "female", "other"]),

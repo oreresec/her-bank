@@ -47,6 +47,7 @@ const createAccount = async (data) => {
 
 };
 
+
 const nameEnquiry = async(accountNumber) =>{
     const token = await getNibssToken();
     const response = await axios.get(`${process.env.NIBSS_BASE_URL}/api/account/name-enquiry/${accountNumber}`,{ headers: { Authorization: `Bearer ${token}` }});

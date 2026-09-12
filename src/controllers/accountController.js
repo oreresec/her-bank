@@ -10,53 +10,79 @@ exports.createAccount = async (req, res, next) => {
   try {
     // Step One - Validate input with Zod
     const result = accountSchema.safeParse(req.body);
-    if (!result.success) {return res.status(400).json({ errors: result.error.errors });
+    if (!result.success) {
+        console.log('[REQ.BODY RECEIVED]:', req.body);
+  console.log('[RAW ZOD ERROR OBJECT]:', result.error);
+      return res.status(400).json({ errors: result.error.errors });
     }
     const { kycType, kycID, dob } = result.data;
 
     // Step Two - Find customer
     const customer = await Customer.findById(req.user.customerId);
-    if (!customer) {return res.status(404).json({ message: 'Customer not found' });}
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
 
     // Step Three - Check if KYC is verified
-    if (!customer.kycVerified) {return res.status(400).json({message: 'KYC verification required before opening an account.',});
+    if (!customer.kycVerified) {
+      return res.status(400).json({ message: 'KYC verification required before opening an account.' });
     }
 
     // Step Four - Check if customer already has an account
     const existingAccount = await Account.findOne({ customerId: customer._id });
-    if (existingAccount) {return res.status(400).json({message: 'Customer already has an active bank account.',});
+    if (existingAccount) {
+      return res.status(400).json({ message: 'Customer already has an active bank account.' });
     }
 
-// Step Five - Call NIBSS to generate account
-const nibssResponse = await createNibssAccount({kycType: kycType.toLowerCase(),kycID,dob,});
+    // Step Five - Define payload first, then log and call NIBSS
+    const payload = {
+      kycType: kycType.toLowerCase(),
+      kycID,
+      dob,
+    };
 
-// Extract nested payload safely
-const accountData = nibssResponse.account || nibssResponse.data || nibssResponse;
+    console.log('[NIBSS REQUEST PAYLOAD]:', payload);
+    const nibssResponse = await createNibssAccount(payload);
 
-// Log NIBSS response to see the exact structure
-console.log('[DEBUG NIBSS ACCOUNT PAYLOAD]:', accountData);
+    // Extract nested payload safely
+    const accountData = nibssResponse.account || nibssResponse.data || nibssResponse;
 
-// Step Six - Save Account to DB
-const account = await Account.create({
-  customerId: customer._id,
-  accountNumber: accountData.accountNumber || accountData.accountNo, // Fallback check for key variations
-  bankCode: accountData.bankCode || '108',
-  bankName: accountData.bankName || 'HER Bank',
-  balance: accountData.balance || 15000,
-});
+    // Log NIBSS response to see the exact structure
+    console.log('[DEBUG NIBSS ACCOUNT PAYLOAD]:', accountData);
 
-// Step Seven - Update Customer model
-customer.accountNumber = account.accountNumber;
-customer.bankCode = account.bankCode;
-customer.bankName = account.bankName;
-customer.balance = account.balance;
-await customer.save();
+    // Step Six - Save Account to DB
+    const account = await Account.create({
+      customerId: customer._id,
+      accountNumber: accountData.accountNumber || accountData.accountNo,
+      bankCode: accountData.bankCode || '108',
+      bankName: accountData.bankName || 'HER Bank',
+      balance: accountData.balance || 15000,
+    });
 
-// Step Eight - Return Response with populated account object
-return res.status(201).json({message: 'Account created successfully',data: account});
+    // Step Seven - Update Customer model
+    customer.accountNumber = account.accountNumber;
+    customer.bankCode = account.bankCode;
+    customer.bankName = account.bankName;
+    customer.balance = account.balance;
+    await customer.save();
+
+    // Step Eight - Return Response with populated account object
+    return res.status(201).json({
+      message: 'Account created successfully',
+      data: account
+    });
+
   } catch (error) {
-    console.error('[CREATE ACCOUNT CONTROLLER ERROR]:', error);
-    next(error);
+    console.error('[CREATE ACCOUNT CONTROLLER ERROR FULL]:', error);
+    if (error.response) {
+      console.error('[NIBSS API ERROR RESPONSE]:', error.response.data);
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+      nibssError: error.response?.data || null
+    });
   }
 };
 
